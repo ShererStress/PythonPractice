@@ -1,9 +1,15 @@
-from sys import argv;
+filename =  "./datafiles/sample15.txt";
 
-# ./datafiles/sample15.txt
+textFile = open(filename, "r+");
 
-txt = open(argv[1]);
+# print(textFile.read());
 
-print(f"here is the file {argv[1]}:");
+textFile.truncate();
 
-print(txt.read());
+textFile.write("LINE ONE \nLINE TWO \nLINE THREE");
+
+print(f"here is the file {filename}:");
+textFile.seek(0);
+print(textFile.read());
+
+textFile.close();
