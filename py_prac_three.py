@@ -1,6 +1,7 @@
+#Up to lesson 16
 filename =  "./datafiles/sample15.txt";
 
-textFile = open(filename, "r+");
+textFile = open(filename, "w+");
 
 # print(textFile.read());
 
