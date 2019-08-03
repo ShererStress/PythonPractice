@@ -3,7 +3,7 @@ import math;
 
 x_dim = 10;
 y_dim = 10;
-box_size=40;
+box_size = 40;
 
 #objects
 
@@ -32,15 +32,25 @@ class Unit:
         else:
             print("DEFENDING");
 
+# Inf, Rocket Inf, Light Supply, Light Art, AT Gun
+# Light Transport, Decoy Platform, GtA Missile, Seeker Platform
+# Light Tank, AA, Armored Supply, Heavy Tank, Self-Prop Art
+# Recon, Flanker, Tank-Killer
+# --
+# Jump Jet, Assault Inf
+# EM Disruptor, Rocket
+# Adv tank
+# Air-Killer, Mimic
 
 class MapTile:
 
-    def __init__(self, rectange_id, x_pos_in, y_pos_in):
+    def __init__(self, rectange_id, x_pos_in, y_pos_in, move_cost_in = 1):
         self.canvas_rect_id = rectange_id;
         self.occupied = False;
         self.occupying_unit = None;
         self.x_pos = x_pos_in;
         self.y_pos = y_pos_in;
+        self.move_cost = move_cost_in;
 
     def update_display(self, override=0):
         selected_color="red";
@@ -75,6 +85,8 @@ class GameLogic:
     def handle_click(self, selected_tile):
         if self.active_movement_tile == None:
             if selected_tile.occupied:
+                if selected_tile.occupying_unit.awaiting_orders == False:
+                    print("That unit has already moved, but that's ok for now");
                 self.activate_unit(selected_tile);
             else:
                 print("Nothing here");
@@ -101,6 +113,7 @@ class GameLogic:
 
     def activate_unit(self, selected_tile):
         self.active_movement_tile = selected_tile;
+        #Display movement options
         tile_radius = selected_tile.occupying_unit.movespeed;
         x_center = selected_tile.x_pos;
         y_center = selected_tile.y_pos;
@@ -113,6 +126,36 @@ class GameLogic:
             for i in range(x_start, x_end+1):
                 new_overlay_tile = map_area.create_rectangle(15+box_size*i,15+box_size*j,box_size-6+box_size*i,box_size-6+box_size*j, fill="orange", activefill="blue", outline="red", width=0);
                 self.overlay_tile_ids.append(new_overlay_tile);
+
+    def display_movement_area(self):
+        print("Seeking movement");
+        #Store:
+        #A hash(?) of checked coordinates(calculated_paths) objects. Each object has:
+            #remaining movement once that tile is reached
+            #most efficient path to that location
+        #A Hash of lists, each hash is a different movecost
+            #The lists contain an object (partial_path), which holds:
+                #the paths in progress and remaining movespeed
+
+        #Actions:
+        #Get a partial_path object with the smallest movecost (any with the smallest cost is fine)
+            #Generate one for the starting tile before this to get started
+        #Check the calculated_paths object for the checked coordinate
+            #Add it(with path/remaining movement) if it does not exist
+            #If it does, compare the existing movement value to the one just calculated
+            #If the new remaining movement is greater (or no data exists):
+                #Overwrite the old data
+                #Check each adjacent tile:
+                    #If an enemy occupies it, nothing happens.
+                    #Otherwise, subtract the new tile's movecost from the remaining movespeed, and add a new partial_path object to the hash
+                #If it does not, the path is inefficient and the data can be discarded
+
+        #Once done, display the possible move options
+        #Iterate through the calculated_paths
+
+    def recursive_move_check(self):
+        #Don't allow backtracking - use coordinates to check? Currently just comparing to existing paths - this might be good enough
+        #Prioritize checking of low-cost movement options - less overwriting
 
     def move_unit(self, selected_tile):
         if(selected_tile != self.active_movement_tile):
@@ -127,6 +170,9 @@ class GameLogic:
         overlay_tile_ids = []; #Better way to empty a list?
         x_center = self.active_combat_tile.x_pos;
         y_center = self.active_combat_tile.y_pos;
+        new_overlay_tile = map_area.create_rectangle(15+box_size*(x_center),15+box_size*(y_center),box_size-6+box_size*(x_center),box_size-6+box_size*(y_center), fill="blue", activefill="red", outline="red", width=0);
+        self.overlay_tile_ids.append(new_overlay_tile);
+
         adjacent_coordinates = [[1,0],[-1,0],[0,1],[0,-1]];
         for i in adjacent_coordinates:
             checked_tile_id = x_center+i[0]+10*(y_center+i[1]);
@@ -177,7 +223,11 @@ for j in range(0, y_dim):
     for i in range(0,x_dim):
 
         new_rect_id = map_area.create_rectangle(5+box_size*i,5+box_size*j,box_size+4+box_size*i,box_size+4+box_size*j, fill="black", activefill="blue", outline="red", width=0);
-        new_rectangle = MapTile(new_rect_id, i, j);
+        if j%2 == 0:
+            move_cost_temp = 2;
+        else:
+            move_cost_temp = 1;
+        new_rectangle = MapTile(new_rect_id, i, j, move_cost_temp);
         map_tile_list.append(new_rectangle);
 
 
