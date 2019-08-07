@@ -130,7 +130,7 @@ class GameLogic:
     def display_movement_area(self):
         print("Seeking movement");
         #Store:
-        #A hash(?) of checked coordinates(calculated_paths) objects. Each object has:
+        #A hash(2-D?) of checked coordinates(calculated_paths) objects. Each object has:
             #remaining movement once that tile is reached
             #most efficient path to that location
         #A Hash of lists, each hash is a different movecost
@@ -145,17 +145,18 @@ class GameLogic:
             #If it does, compare the existing movement value to the one just calculated
             #If the new remaining movement is greater (or no data exists):
                 #Overwrite the old data
-                #Check each adjacent tile:
+                #Check each adjacent tile if remaining movement > 0:
                     #If an enemy occupies it, nothing happens.
+                    #If the unit cannot move there due to terrain (not enough movement, or non-traversible tile), nothing happens
                     #Otherwise, subtract the new tile's movecost from the remaining movespeed, and add a new partial_path object to the hash
                 #If it does not, the path is inefficient and the data can be discarded
 
         #Once done, display the possible move options
-        #Iterate through the calculated_paths
+        #Iterate through the calculated_paths hash, display an overlay for each relevant tile
 
     def recursive_move_check(self):
         #Don't allow backtracking - use coordinates to check? Currently just comparing to existing paths - this might be good enough
-        #Prioritize checking of low-cost movement options - less overwriting
+        #Prioritize checking of low-cost movement options - less overwriting on average (I think)
 
     def move_unit(self, selected_tile):
         if(selected_tile != self.active_movement_tile):
