@@ -15,7 +15,7 @@ class Unit:
         self.x_pos = x_in;
         self.y_pos = y_in;
         self.awaiting_orders = True;
-        selected_tile = x_in+10*y_in;
+        selected_tile = x_in+x_dim*y_in;
         map_tile_list[selected_tile].assign_unit(self);
 
     def display_location():
@@ -115,6 +115,8 @@ class GameLogic:
         self.active_movement_tile = selected_tile;
         #Display movement options
         tile_radius = selected_tile.occupying_unit.movespeed;
+        self.display_movement_area(tile_radius);
+        """
         x_center = selected_tile.x_pos;
         y_center = selected_tile.y_pos;
         y_start = max(0, y_center - tile_radius);
@@ -126,37 +128,146 @@ class GameLogic:
             for i in range(x_start, x_end+1):
                 new_overlay_tile = map_area.create_rectangle(15+box_size*i,15+box_size*j,box_size-6+box_size*i,box_size-6+box_size*j, fill="orange", activefill="blue", outline="red", width=0);
                 self.overlay_tile_ids.append(new_overlay_tile);
+        """
 
-    def display_movement_area(self):
+    def create_path(self, path_string_in, remaining_movement_in, x_distance, y_distance):
+        new_path_dictionary = {
+            "remaining_movespeed" : remaining_movement_in,
+            "path" : path_string_in,
+            "x_diff" : x_distance,
+            "y_diff" : y_distance,
+        };
+        print("New path dictionary complete");
+        return new_path_dictionary;
+
+    def display_movement_area(self, initial_movespeed):
+        x_center = self.active_movement_tile.x_pos;
+        y_center = self.active_movement_tile.y_pos;
+        path_zone_length = 2*initial_movespeed+1;
         print("Seeking movement");
         #Store:
-        #A hash(2-D?) of checked coordinates(calculated_paths) objects. Each object has:
+        #A list(2-D?) of checked coordinates(calculated_paths) dictionaries. Each dictionary has:
             #remaining movement once that tile is reached
             #most efficient path to that location
-        #A Hash of lists, each hash is a different movecost
-            #The lists contain an object (partial_path), which holds:
+        calculated_paths = ["NA"]*(path_zone_length**2);
+        calculated_paths_remaining_movement = [-1]*(path_zone_length**2);
+
+        #A Dictionary of lists, each key is a different movecost
+            #The lists contain a dictionary (partial_path), which holds:
                 #the paths in progress and remaining movespeed
+        initial_square = self.create_path("",initial_movespeed, 0, 0);
+        partial_paths = {
+            "cost_1" : [initial_square],
+        };
 
+        print(partial_paths);
         #Actions:
-        #Get a partial_path object with the smallest movecost (any with the smallest cost is fine)
+        #Get a partial_path dictionary with the smallest movecost (any with the smallest cost is fine)
             #Generate one for the starting tile before this to get started
-        #Check the calculated_paths object for the checked coordinate
-            #Add it(with path/remaining movement) if it does not exist
-            #If it does, compare the existing movement value to the one just calculated
-            #If the new remaining movement is greater (or no data exists):
-                #Overwrite the old data
-                #Check each adjacent tile if remaining movement > 0:
-                    #If an enemy occupies it, nothing happens.
-                    #If the unit cannot move there due to terrain (not enough movement, or non-traversible tile), nothing happens
-                    #Otherwise, subtract the new tile's movecost from the remaining movespeed, and add a new partial_path object to the hash
-                #If it does not, the path is inefficient and the data can be discarded
+        while(len(partial_paths["cost_1"]) > 0):
+            path_to_check = partial_paths["cost_1"].pop(0);
+            #Check the calculated_paths object for the checked coordinate
+            x_map_coordinate = x_center+path_to_check["x_diff"];
+            y_map_coordinate = y_center+path_to_check["y_diff"];
 
+            map_tile_to_check = map_tile_list[x_map_coordinate + y_map_coordinate*x_dim];
+            calculated_path_index = (initial_movespeed + path_to_check["x_diff"]) + path_zone_length * (initial_movespeed + path_to_check["y_diff"]);
+            #print("x_diff:", path_to_check["x_diff"]);
+            #print("y_diff:", path_to_check["y_diff"]);
+            #print("path zone length:", path_zone_length);
+            print("Calc'ed path index:", calculated_path_index);
+            if calculated_paths_remaining_movement[calculated_path_index] < path_to_check["remaining_movespeed"]:
+                print("Better path - overwrite data!");
+                calculated_paths[calculated_path_index] = path_to_check["path"];
+                calculated_paths_remaining_movement[calculated_path_index] = path_to_check["remaining_movespeed"];
+                #Make new paths here - check the new tiles for validity here
+
+                #up, right, down, left
+                coordinate_offsets = [[0,-1],[1,0],[0,1],[-1,0]];
+                direction_string = ["U", "R", "D", "L"];
+                for i in range(0, 4):
+                    new_map_x_coord = x_map_coordinate + coordinate_offsets[i][0];
+                    new_map_y_coord = y_map_coordinate + coordinate_offsets[i][1];
+                    map_tile_index = new_map_x_coord + new_map_y_coord * x_dim;
+                    print(map_tile_index, "MTI")
+                    print(new_map_x_coord, "x_cor")
+                    print(new_map_y_coord, "y_cor")
+                    #Boundary check
+                    if new_map_x_coord >= 0 and new_map_x_coord < x_dim and new_map_y_coord >= 0 and new_map_y_coord < y_dim and map_tile_index >=0 and map_tile_index < x_dim*y_dim:
+                        map_tile_to_check = map_tile_list[map_tile_index];
+                        #Enemy presence check:
+                        enemy_presence = False;
+                        if map_tile_to_check.occupied:
+                            if map_tile_to_check.occupying_unit.team_id != self.active_movement_tile.occupying_unit.team_id:
+                                enemy_presence = True;
+
+                        if (not enemy_presence):
+                            #(map_tile_index >= 0 and map_tile_index < x_dim*y_dim):
+
+                            new_remaining_movement = path_to_check["remaining_movespeed"] - map_tile_to_check.move_cost;
+                            if(new_remaining_movement >= 0):
+                                new_path = self.create_path(path_to_check["path"]+direction_string[i], new_remaining_movement, path_to_check["x_diff"]+coordinate_offsets[i][0], path_to_check["y_diff"]+coordinate_offsets[i][1]);
+                                partial_paths["cost_1"].append(new_path);
+
+                #Add it(with path/remaining movement) if it does not exist
+                #If it does, compare the existing movement value to the one just calculated
+                #If the new remaining movement is greater (or no data exists):
+                    #Overwrite the old data
+                    #Check each adjacent tile if remaining movement > 0:
+                        #If an enemy occupies it, nothing happens.
+                        #If the unit cannot move there due to terrain (not enough movement, or non-traversible tile), nothing happens
+                        #Otherwise, subtract the new tile's movecost from the remaining movespeed, and add a new partial_path object to the hash
+                    #If it does not, the path is inefficient and the data can be discarded
+
+
+            for j in range(0, path_zone_length):
+                print(calculated_paths_remaining_movement[j*path_zone_length:((j+1)*path_zone_length)]);
+                #print(calculated_paths[j*path_zone_length:((j+1)*path_zone_length)]);
+            #print(partial_paths["cost_1"]);
         #Once done, display the possible move options
-        #Iterate through the calculated_paths hash, display an overlay for each relevant tile
+        #Iterate through the calculated_paths list, display an overlay for each relevant tile
 
-    def recursive_move_check(self):
-        #Don't allow backtracking - use coordinates to check? Currently just comparing to existing paths - this might be good enough
-        #Prioritize checking of low-cost movement options - less overwriting on average (I think)
+        #minimum
+        #Case 1: movement region within map, does not touch upper border
+            #Minimum: 0
+            #Maximum: 0+path_zone_length(not inclusive)
+        #Case 2: movement region extends beyond borders
+            #Minimum: initial_movespeed - y_center
+            #maximum:
+                #movement>mapsize:
+        print("NEW MAP");
+        y_start = max(0, initial_movespeed - y_center);
+        y_end = path_zone_length;
+        y_end = min(y_end, y_start+y_dim);
+
+        x_start = max(0, initial_movespeed - x_center);
+        x_end = path_zone_length;
+        x_end = min(x_end, x_start + x_dim);
+
+        print(y_start, y_end)
+        print(x_start, x_end)
+        y_offset = initial_movespeed - y_center;
+        x_offset = initial_movespeed - x_center;
+        for j in range(y_start, y_end):
+            print(calculated_paths_remaining_movement[j*path_zone_length + x_start:(j*path_zone_length+x_end)]);
+            for i in range(x_start,x_end):
+                print(i,j);
+                if(calculated_paths_remaining_movement[j*path_zone_length + i] >= 0):
+                    new_overlay_tile = map_area.create_rectangle(15+box_size*(i-x_offset),15+box_size*(j-y_offset),box_size-6+box_size*(i-x_offset),box_size-6+box_size*(j-y_offset), fill="orange", activefill="blue", outline="red", width=0);
+                    self.overlay_tile_ids.append(new_overlay_tile);
+        #x_center = selected_tile.x_pos;
+        #y_center = selected_tile.y_pos;
+        """
+        y_start = max(0, y_center - tile_radius);
+        y_end = min(y_dim, y_center + tile_radius);
+        for j in range(y_start, y_end+1):
+            horizontal_spread = tile_radius-(abs(y_center-j));
+            x_start = max(0, x_center - horizontal_spread);
+            x_end = min(x_dim, x_center + horizontal_spread);
+            for i in range(x_start, x_end+1):
+                new_overlay_tile = map_area.create_rectangle(15+box_size*i,15+box_size*j,box_size-6+box_size*i,box_size-6+box_size*j, fill="orange", activefill="blue", outline="red", width=0);
+                self.overlay_tile_ids.append(new_overlay_tile);
+                """
 
     def move_unit(self, selected_tile):
         if(selected_tile != self.active_movement_tile):
@@ -233,8 +344,16 @@ for j in range(0, y_dim):
 
 
 map_area.pack();
-test_unit = Unit(0,4,1,1);
+test_unit = Unit(0,8,2,3);
+
 test_unit = Unit(1,3,2,5);
+test_unit = Unit(1,3,4,5);
+test_unit = Unit(1,3,3,4);
+test_unit = Unit(1,3,3,6);
+
+test_unit = Unit(1,3,0,7);
+test_unit = Unit(1,3,1,8);
+test_unit = Unit(1,3,2,9);
 
 
 main_window.mainloop();
